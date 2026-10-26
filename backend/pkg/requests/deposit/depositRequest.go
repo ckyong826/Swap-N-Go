@@ -1,0 +1,12 @@
+package requests
+
+type InitiateDepositReq struct {
+	AmountMYR float64 `json:"amount_myr" binding:"required,gt=0"`
+	Pin       string  `json:"pin" binding:"required,len=4,numeric"`
+}
+
+type WebhookReq struct {
+	// 假设这是 Billplz/Stripe 传来的参数
+	ID    string `json:"id" form:"id"`
+	State string `json:"state" form:"state"` // 例如 "paid" 或 "due"
+}
