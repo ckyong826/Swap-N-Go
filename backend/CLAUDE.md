@@ -87,7 +87,6 @@ python tests/test_apis.py
 
 ```bash
 go run tests/simulate_swap_event.go
-go run tests/sui.go
 ```
 
 There are no native Go `*_test.go` files — all tests are Python integration tests in `tests/`.
@@ -186,3 +185,5 @@ Routes are defined in `internal/routes/` and registered in `cmd/api/main.go`.
 - `POST /api/v1/private/transfer/initiate` + `GET` routes
 - `POST /api/v1/private/withdraw/initiate` + `GET` routes
 - `GET /ws/prices` — WebSocket
+
+> **Monorepo note:** The historical `tests/sui.go` fixture was not imported because it contains an embedded private key. Do not restore hardcoded credentials; use environment-backed test fixtures instead. The backend lives in `backend/` of the combined repository.
