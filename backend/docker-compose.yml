@@ -1,0 +1,116 @@
+services:
+  # --- Existing Postgres and Kafka ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: swapngo_db
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: swapngo
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  kafka:
+    image: apache/kafka:latest
+    container_name: swapngo_kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  # --- Kafka Topic Initialization ---
+  kafka-init:
+    image: apache/kafka:latest
+    container_name: swapngo_kafka_init
+    depends_on:
+      - kafka
+    # Wait for kafka to be ready, then create the topic
+    command: >
+      bash -c "
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list &&
+      echo 'Creating kafka topics' &&
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic swap_events_topic --replication-factor 1 --partitions 1 &&
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic deposit_events_topic --replication-factor 1 --partitions 1 &&
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic withdraw_events_topic --replication-factor 1 --partitions 1 &&
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic transfer_events_topic --replication-factor 1 --partitions 1 &&
+      echo 'Successfully created topics:' &&
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list
+      "
+
+  # --- New Backend Service ---
+  backend:
+    build: .
+    container_name: swapngo_api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - kafka
+      - kafka-init
+    command: ["./api"]
+    env_file:
+      - .env
+    environment:
+      # Override .env values with Docker-network container names
+      DB_HOST: postgres
+      DB_PORT: 5432
+      KAFKA_BROKERS: kafka:29092
+    restart: always
+
+  # --- New Worker Service ---
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Overriding the command to run the worker instead of the API
+    command: ["./worker"]
+    container_name: swapngo_worker
+    depends_on:
+      - postgres
+      - kafka
+      - kafka-init
+    env_file:
+      - .env
+    environment:
+      # Override .env values with Docker-network container names
+      DB_HOST: postgres
+      DB_PORT: 5432
+      KAFKA_BROKERS: kafka:29092
+    restart: always
+
+  # --- Dev Backend with hot reload (air) ---
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: swapngo_api_dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - kafka
+      - kafka-init
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      KAFKA_BROKERS: kafka:29092
+    restart: unless-stopped
+
+volumes:
+  pgdata:
