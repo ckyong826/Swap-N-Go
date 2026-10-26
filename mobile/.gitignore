@@ -1,0 +1,4 @@
+./node_modules
+/node_modules
+.env
+AuthKey_ZZ39LJW52Y.p8

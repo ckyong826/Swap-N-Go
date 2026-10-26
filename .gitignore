@@ -1,0 +1,41 @@
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+!.env.production.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
+*.p8
+*.pem
+*.key
+
+# Local data and backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*_local.sql
+
+# Build artifacts and generated files
+node_modules/
+**/node_modules/
+.expo/
+**/.expo/
+dist/
+**/dist/
+tmp/
+**/tmp/
+*.exe
+*.log
+__pycache__/
+*.pyc
+coverage/
+
+# Editor and operating system
+.DS_Store
+.idea/
+.vscode/
+**/.claude/settings.local.json
